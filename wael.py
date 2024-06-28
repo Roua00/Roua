@@ -1,27 +1,40 @@
 import streamlit as st
-import serial
 import time
 import atexit
+
+# Mock Serial class for cloud deployment
+class MockSerial:
+    def __init__(self, port, baudrate):
+        self.port = port
+        self.baudrate = baudrate
+
+    def write(self, command):
+        st.write(f"Mock command to {self.port}: {command}")
+
+    def close(self):
+        st.write(f"Closing mock connection to {self.port}")
 
 # Function to initialize the Arduino board
 def initialize_board(port):
     try:
-        arduino = serial.Serial(port, 9600)
-        time.sleep(2)  # Wait for Arduino to initialize
+        if st.secrets["environment"] == "cloud":
+            arduino = MockSerial(port, 9600)
+        else:
+            import serial
+            arduino = serial.Serial(port, 9600)
+            time.sleep(2)  # Wait for Arduino to initialize
+        
         st.session_state['board_initialized'] = True
         st.session_state['arduino'] = arduino
         st.success(f'Arduino connected on port {port}')
-    except serial.SerialException as e:
-        st.error(f'Could not open {port}: {e}')
     except Exception as e:
-        st.error(f'An unexpected error occurred: {e}')
+        st.error(f'Could not open {port}: {e}')
 
 # Streamlit App
-st.title(' T83 NYS conference')
+st.title('Arduino Control with Streamlit')
 
 # Input fields for port and pin
 port = st.text_input('Enter the Arduino port (e.g., COM3 or /dev/ttyACM0):', value='COM3')
-pin = st.number_input('Enter the Arduino pin number to control:', min_value=0, max_value=13, value=13)
 
 # Initialize board button
 if st.button('Initialize Arduino'):
@@ -31,16 +44,15 @@ if st.button('Initialize Arduino'):
 if 'board_initialized' in st.session_state and st.session_state['board_initialized']:
     arduino = st.session_state['arduino']
     
-    if st.button('Turn On LED'):
-        st.write('Turning on the LED...')
-        arduino.write(f'{pin},HIGH\n'.encode())
-        time.sleep(1)  # Keep the LED on for 1 second
-        st.write('LED is now on.')
+    if st.button('Turn On LED with 10-minute Delay'):
+        st.write('Scheduling LED to turn on after 10 minutes...')
+        arduino.write('TURN_ON\n'.encode())
+        st.write('LED will turn on in 10 minutes.')
 
-    if st.button('Turn Off LED'):
-        st.write('Turning off the LED...')
-        arduino.write(f'{pin},LOW\n'.encode())
-        st.write('LED is now off.')
+    if st.button('Turn Off LED with 10-minute Delay'):
+        st.write('Scheduling LED to turn off after 10 minutes...')
+        arduino.write('TURN_OFF\n'.encode())
+        st.write('LED will turn off in 10 minutes.')
 
 # Ensure proper shutdown of the Arduino board
 def cleanup():
